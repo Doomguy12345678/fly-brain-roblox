@@ -28,6 +28,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--roi", type=int, nargs=4, metavar=("LEFT", "TOP", "WIDTH", "HEIGHT"))
     parser.add_argument("--success-template", action="append", type=Path, default=[])
     parser.add_argument("--failure-template", action="append", type=Path, default=[])
+    parser.add_argument(
+        "--key",
+        action="append",
+        default=[],
+        metavar="ACTION=KEY",
+        help="Override a control (repeatable, e.g. --key look_left=a)",
+    )
     parser.add_argument("--neutral-without-feedback", action="store_true")
     parser.add_argument("--root", type=Path, default=Path(__file__).resolve().parent)
     return parser.parse_args()
@@ -39,11 +46,17 @@ def main() -> None:
         raise ValueError("Episode count must be positive")
     roi = RegionOfInterest(*args.roi) if args.roi else None
     paths = ProjectPaths(root=args.root)
+    key_bindings = dict(AgentConfig().key_bindings)
+    for value in args.key:
+        action, separator, key = value.partition("=")
+        if not separator or action not in key_bindings or not key:
+            raise ValueError(f"Invalid key override {value!r}; use ACTION=KEY")
+        key_bindings[action] = key
     environment = RobloxAnomalyEnv(
         scene_name=args.scene,
         capture_config=CaptureConfig(fps=args.fps, roi=roi),
         vision_config=VisionConfig(),
-        agent_config=AgentConfig(),
+        agent_config=AgentConfig(key_bindings=key_bindings),
         reward_config=RewardConfig(
             missing_feedback="neutral" if args.neutral_with_feedback else "error",
             success_templates=tuple(args.success_template),

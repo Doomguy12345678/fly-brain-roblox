@@ -88,6 +88,7 @@ class RewardConfig:
     missing_feedback: str = "error"
     feedback_timeout_seconds: float = 1.0
     feedback_poll_interval: float = 0.1
+    feedback_margin: float = 0.05
     success_templates: tuple[Path, ...] = ()
     failure_templates: tuple[Path, ...] = ()
 
@@ -96,6 +97,8 @@ class RewardConfig:
             raise ValueError("missing_feedback must be 'error' or 'neutral'")
         if self.feedback_timeout_seconds < 0 or self.feedback_poll_interval <= 0:
             raise ValueError("Feedback timeout must be non-negative and poll interval positive")
+        if not 0.0 <= self.feedback_margin <= 1.0:
+            raise ValueError("Feedback margin must be in [0, 1]")
         if self.missing_feedback == "error" and (
             not self.success_templates or not self.failure_templates
         ):

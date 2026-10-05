@@ -23,6 +23,7 @@ class ScreenCapture:
     def __init__(self, config: CaptureConfig) -> None:
         self.config = config
         self._capture: mss.mss | None = None
+        self._next_frame_at = time.monotonic()
 
     def __enter__(self) -> ScreenCapture:
         self.start()
@@ -65,15 +66,20 @@ class ScreenCapture:
             interpolation=cv2.INTER_AREA,
         )
 
+    def capture_at_rate(self) -> Frame:
+        """Capture a frame without exceeding the configured frame rate."""
+        now = time.monotonic()
+        if self._next_frame_at > now:
+            time.sleep(self._next_frame_at - now)
+        frame_started_at = time.monotonic()
+        frame = self.capture()
+        self._next_frame_at = max(
+            frame_started_at + 1.0 / self.config.fps,
+            time.monotonic(),
+        )
+        return frame
+
     def frames(self) -> Iterator[Frame]:
         """Yield frames at approximately the configured capture rate."""
-        interval = 1.0 / self.config.fps
-        deadline = time.monotonic()
         while True:
-            yield self.capture()
-            deadline += interval
-            delay = deadline - time.monotonic()
-            if delay > 0:
-                time.sleep(delay)
-            else:
-                deadline = time.monotonic()
+            yield self.capture_at_rate()

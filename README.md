@@ -8,6 +8,9 @@ references, and trains a Stable-Baselines3 PPO policy through Gymnasium.
 
 - `screen_capture.py` captures a desktop or configured region at a controlled
   rate and resizes frames for the agent.
+- `capture_phone.py` observes a phone screen shown in a desktop mirroring
+  window, saving sampled screenshots and visual-change summaries without
+  sending input to the phone.
 - `anomaly_detector.py` calculates frame similarity, thresholded difference
   maps, template matches, and approximate changed-region events.
 - `memory_manager.py` stores normal-room reference images and an append-only
@@ -39,15 +42,48 @@ source .venv/bin/activate
 python -m pip install -r requirements.txt
 ```
 
-On Linux, run this in a graphical desktop session with screen-capture and
-keyboard-control permissions. Focus the Roblox window and enter a normal room
-before starting: the first environment reset saves that screen as the scene's
+Run screen capture in a graphical desktop session. For the existing PC
+keyboard-control mode, focus the Roblox window and enter a normal room before
+starting: the first environment reset saves that screen as the scene's
 baseline. To explicitly replace a baseline, remove that scene's image under
 `memory/references/` before starting again.
 
 The default capture region is the primary monitor. Restrict capture to a
 game-window region with `--roi LEFT TOP WIDTH HEIGHT` (screen coordinates).
 The game window should remain in that region throughout training.
+
+## Observe Roblox on an iPhone
+
+On Windows, first connect the iPhone and open a mirroring application that
+shows its live display in a desktop window. The Python tool captures pixels
+from that visible window; it does not connect to iOS over USB itself, launch
+Roblox, tap the phone, or control the mirrored app. You keep the phone's touch
+controls manual. Mirroring applications differ in whether they support iPhone
+USB mirroring; AirDroid Cast documents phone control through its desktop client,
+but iPhone/Roblox touch forwarding must be confirmed on your own setup. See the
+[AirDroid Cast product page](https://www.airdroid.com/cast/).
+
+With the mirrored Roblox game showing a normal room, capture the desktop
+coordinates of the mirror window and run:
+
+```bash
+python capture_phone.py \
+  --scene anomaly-detect-phone-room \
+  --roi 100 80 430 760 \
+  --fps 5
+```
+
+The first frame becomes the saved normal-room reference if one does not exist.
+The tool writes a screenshot every five frames by default, and logs a
+similarity/change summary for every frame. Use `--replace-baseline` only when
+the first visible frame is a known normal room and you intend to replace that
+scene's existing baseline. `--duration 300` stops after five minutes; otherwise
+press Ctrl+C to stop. `--archive-every 1` saves every frame.
+
+This iPhone mode is observation/data collection only; it does not train PPO,
+because the agent cannot perform phone actions or know the result of manually
+performed taps. PPO training and evaluation described below remain for the
+keyboard-controlled desktop Roblox client.
 
 ## Report feedback and rewards
 
@@ -70,9 +106,9 @@ python train.py \
 If the game has no visible outcome indicator, `--neutral-without-feedback`
 explicitly opts into neutral rewards for unrecognized reports. That mode cannot
 teach PPO which reports were correct. Use separate scene names for distinct
-normal-room baselines; select game-specific key bindings by constructing
-`AgentConfig` with the game's controls when embedding the environment in
-another Python entry point.
+normal-room baselines. Override controls for games with different key layouts
+by repeating `--key ACTION=KEY` in both training and evaluation, for example
+`--key look_left=a --key look_right=d --key report_anomaly=f`.
 
 Run evaluation with matching feedback templates and capture settings:
 

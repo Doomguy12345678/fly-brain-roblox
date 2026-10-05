@@ -28,6 +28,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--roi", type=int, nargs=4, metavar=("LEFT", "TOP", "WIDTH", "HEIGHT"))
     parser.add_argument("--success-template", action="append", type=Path, default=[])
     parser.add_argument("--failure-template", action="append", type=Path, default=[])
+    parser.add_argument(
+        "--key",
+        action="append",
+        default=[],
+        metavar="ACTION=KEY",
+        help="Override a control (repeatable, e.g. --key look_left=a)",
+    )
     parser.add_argument("--neutral-without-feedback", action="store_true")
     parser.add_argument("--timesteps", type=int, default=100_000)
     parser.add_argument("--seed", type=int, default=0)
@@ -40,7 +47,16 @@ def main() -> None:
     roi = RegionOfInterest(*args.roi) if args.roi else None
     capture_config = CaptureConfig(fps=args.fps, roi=roi)
     vision_config = VisionConfig()
-    agent_config = AgentConfig(total_timesteps=args.timesteps)
+    key_bindings = dict(AgentConfig().key_bindings)
+    for value in args.key:
+        action, separator, key = value.partition("=")
+        if not separator or action not in key_bindings or not key:
+            raise ValueError(f"Invalid key override {value!r}; use ACTION=KEY")
+        key_bindings[action] = key
+    agent_config = AgentConfig(
+        total_timesteps=args.timesteps,
+        key_bindings=key_bindings,
+    )
     paths = ProjectPaths(root=args.root)
     paths.create_directories()
 

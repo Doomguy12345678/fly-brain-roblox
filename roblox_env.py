@@ -119,10 +119,10 @@ class RobloxAnomalyEnv(gym.Env[VisionObservation, int]):
         if reference_path.exists():
             self._reference = self.memory.load_reference(self.scene_name)
         else:
-            self._reference = self.capture.capture()
+            self._reference = self.capture.capture_at_rate()
             self.memory.save_reference(self.scene_name, self._reference)
 
-        frame = self.capture.capture()
+        frame = self.capture.capture_at_rate()
         observation, result = self.vision.process(frame, self._reference)
         self._last_frame = frame
         self._last_observation = observation
@@ -150,7 +150,7 @@ class RobloxAnomalyEnv(gym.Env[VisionObservation, int]):
         else:
             time.sleep(self.agent_config.action_hold_seconds)
 
-        frame = self.capture.capture()
+        frame = self.capture.capture_at_rate()
         reward = self.reward_config.neutral_step
         feedback: str | None = None
         if selected_action == GameAction.REPORT_ANOMALY and not report_suppressed:
@@ -236,7 +236,7 @@ class RobloxAnomalyEnv(gym.Env[VisionObservation, int]):
             if time.monotonic() >= deadline:
                 break
             time.sleep(self.reward_config.feedback_poll_interval)
-            frame = self.capture.capture()
+            frame = self.capture.capture_at_rate()
 
         if self.reward_config.missing_feedback == "error":
             raise RuntimeError(
@@ -265,7 +265,13 @@ class RobloxAnomalyEnv(gym.Env[VisionObservation, int]):
         }
         if not matches:
             return None
-        return max(matches, key=matches.__getitem__)
+        ranked = sorted(matches.items(), key=lambda item: item[1], reverse=True)
+        if (
+            len(ranked) > 1
+            and ranked[0][1] - ranked[1][1] < self.reward_config.feedback_margin
+        ):
+            return None
+        return ranked[0][0]
 
     def _archive_frame(self, frame: NDArray[np.uint8]) -> Path:
         path = self.paths.screenshots / (
