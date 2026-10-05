@@ -1,0 +1,6 @@
+gymnasium>=0.29,<2
+mss>=9.0
+numpy>=1.24,<3
+opencv-python-headless>=4.8
+pyautogui>=0.9.54
+stable-baselines3[extra]>=2.3,<3
